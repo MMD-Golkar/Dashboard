@@ -1,18 +1,18 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { handleLoginSubmit, handleUsernameChange } from "../utils/handlers";
 
 export function Signin(user, setUser) {
   const [showPassword, setShowPassword] = useState(false);
   const [username, setUsername] = useState("");
-  const [password, setPassword] = useState();
+  const [password, setPassword] = useState("");
   const [error, setError] = useState("");
-  const [loading, setLoading] = useState(true);
-  //const navigate = useNavigate()
+  const [loading, setLoading] = useState(false);
+  const navigate = useNavigate();
 
   return (
     <>
-      <h1 className="text-2xl text-center mt-10 md:text-3xl lg:text-4xl">
+      <h1 className="text-2xl text-center mt-10 md:text-3xl lg:text-4xl mt-40">
         ورود به حساب کاربری
       </h1>
       <form
@@ -21,14 +21,11 @@ export function Signin(user, setUser) {
         onSubmit={(e) =>
           handleLoginSubmit(
             e,
-            user,
-            setUser,
-            error,
             setError,
-            loading,
             setLoading,
             username,
             password,
+            navigate,
           )
         }
       >

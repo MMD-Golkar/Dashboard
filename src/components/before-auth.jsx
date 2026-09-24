@@ -116,7 +116,7 @@ export function UserType() {
             viewBox="0 0 24 24"
             strokeWidth="1.5"
             stroke="currentColor"
-            class="size-4 mt-1.5 ml-0.5"
+            className="size-4 mt-1.5 ml-0.5"
           >
             <path
               strokeLinecap="round"
