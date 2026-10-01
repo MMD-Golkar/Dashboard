@@ -26,12 +26,19 @@ export function Signup() {
   const [error, setError] = useState({});
   const [isLoading, setIsLoading] = useState(false);
   return (
-    <>
-      <h1 className="text-xl flex justify-center mt-20">
+    <main className="signup-page">
+      <h1 className="signup-title">
         اکانت خود را ایجاد کنید
       </h1>
+      {Object.keys(error).length > 0 && (
+        <div className="signup-errors" role="alert">
+          {Object.entries(error).map(([field, message]) => (
+            <p className="signup-error" key={field}>{message}</p>
+          ))}
+        </div>
+      )}
       <form
-        className="flex flex-col border-1 border-black w-[94%] ml-auto mr-auto rounded-xl p-3 gap-4 [&_input]:border-1 [&_input]:rounded-sm [&_input]:p-2 mt-7 [&_input]:pr-8 max-w-135 relative"
+        className="signup-form"
         onSubmit={(e) =>
           handleSignupSubmit(
             e,
@@ -43,10 +50,12 @@ export function Signup() {
           )
         }
       >
-        <div className="flex flex-col gap-4 sm:flex  sm:flex-row [&_input]:sm:flex-1">
+        <div className="signup-name-row">
+          <div className="signup-field">
           <input
             type="text"
             placeholder="نام"
+            className="signup-input"
             title="نام خود را وارد کنید"
             value={userSignupInfo.name}
             onChange={(e) =>
@@ -64,7 +73,7 @@ export function Signup() {
             xmlns="http://www.w3.org/2000/svg"
             viewBox="0 0 24 24"
             fill="currentColor"
-            className="size-6 mt-2.5 mr-1 absolute"
+            className="signup-icon"
           >
             <path
               fillRule="evenodd"
@@ -72,10 +81,12 @@ export function Signup() {
               clipRule="evenodd"
             />
           </svg>
-
+          </div>
+          <div className="signup-field">
           <input
             type="text"
             placeholder="نام خانوادگی"
+            className="signup-input"
             title="نام خود را وارد کنید"
             onChange={(e) =>
               handleSignupLastname(e, userSignupInfo, setUserSignupInfo)
@@ -93,14 +104,17 @@ export function Signup() {
             xmlns="http://www.w3.org/2000/svg"
             viewBox="0 0 24 24"
             fill="currentColor"
-            className="size-6 absolute mt-17 mr-0.5 sm:mt-2.5 sm:mr-67.5"
+            className="signup-icon"
           >
             <path d="M5.25 6.375a4.125 4.125 0 1 1 8.25 0 4.125 4.125 0 0 1-8.25 0ZM2.25 19.125a7.125 7.125 0 0 1 14.25 0v.003l-.001.119a.75.75 0 0 1-.363.63 13.067 13.067 0 0 1-6.761 1.873c-2.472 0-4.786-.684-6.76-1.873a.75.75 0 0 1-.364-.63l-.001-.122ZM18.75 7.5a.75.75 0 0 0-1.5 0v2.25H15a.75.75 0 0 0 0 1.5h2.25v2.25a.75.75 0 0 0 1.5 0v-2.25H21a.75.75 0 0 0 0-1.5h-2.25V7.5Z" />
           </svg>
+          </div>
         </div>
+        <div className="signup-field">
         <input
           type="email"
           placeholder="ایمیل"
+          className="signup-input"
           value={userSignupInfo.email}
           onChange={(e) =>
             handleSignupEmail(e, userSignupInfo, setUserSignupInfo)
@@ -118,16 +132,18 @@ export function Signup() {
           xmlns="http://www.w3.org/2000/svg"
           viewBox="0 0 24 24"
           fill="currentColor"
-          className="size-5 absolute mt-31.5 mr-1.5 sm:mt-17"
+          className="signup-icon"
         >
           <path d="M1.5 8.67v8.58a3 3 0 0 0 3 3h15a3 3 0 0 0 3-3V8.67l-8.928 5.493a3 3 0 0 1-3.144 0L1.5 8.67Z" />
           <path d="M22.5 6.908V6.75a3 3 0 0 0-3-3h-15a3 3 0 0 0-3 3v.158l9.714 5.978a1.5 1.5 0 0 0 1.572 0L22.5 6.908Z" />
         </svg>
 
+        </div>
+        <div className="signup-field">
         <input
           type="tel"
           placeholder="شماره همراه(اختیاری)"
-          className="placeholder:rtl"
+          className="signup-input"
           onChange={(e) =>
             handleSignupPhone(e, userSignupInfo, setUserSignupInfo)
           }
@@ -138,7 +154,7 @@ export function Signup() {
           xmlns="http://www.w3.org/2000/svg"
           viewBox="0 0 24 24"
           fill="currentColor"
-          className="size-5 absolute mt-46 mr-1.5 sm:mt-31.5"
+          className="signup-icon"
         >
           <path
             fillRule="evenodd"
@@ -147,9 +163,12 @@ export function Signup() {
           />
         </svg>
 
+        </div>
+        <div className="signup-field signup-field-wide">
         <input
           type="text"
           placeholder="نام کاربری"
+          className="signup-input"
           value={userSignupInfo.username}
           onChange={(e) =>
             handleSignupUsername(e, userSignupInfo, setUserSignupInfo)
@@ -166,7 +185,7 @@ export function Signup() {
           xmlns="http://www.w3.org/2000/svg"
           viewBox="0 0 24 24"
           fill="currentColor"
-          className="size-6 absolute mt-60.5 mr-1 sm:mt-46"
+          className="signup-icon"
         >
           <path
             fillRule="evenodd"
@@ -174,10 +193,12 @@ export function Signup() {
             clipRule="evenodd"
           />
         </svg>
-
+        </div>
+        <div className="signup-field">
         <input
           type={showPassword ? "text" : "password"}
           placeholder="رمز عبور"
+          className="signup-input"
           onChange={(e) =>
             handleSignupPassword(e, userSignupInfo, setUserSignupInfo)
           }
@@ -194,7 +215,7 @@ export function Signup() {
           xmlns="http://www.w3.org/2000/svg"
           viewBox="0 0 24 24"
           fill="currentColor"
-          className="size-5 absolute mt-75.5 mr-1.5 sm:mt-60.5"
+          className="signup-icon"
         >
           <path
             fillRule="evenodd"
@@ -203,7 +224,7 @@ export function Signup() {
           />
         </svg>
         <button
-          className="absolute mt-75 left-6 cursor-pointer sm:mt-60.5"
+          className="signup-password-toggle"
           type="button"
           onClick={() => setShowPassword(!showPassword)}
         >
@@ -235,9 +256,12 @@ export function Signup() {
           )}
         </button>
 
+        </div>
+        <div className="signup-field">
         <input
           type={showPassword ? "text" : "password"}
           placeholder="تکرار رمز عبور"
+          className="signup-input"
           onChange={(e) =>
             setUserSignupInfo((prev) => ({
               ...prev,
@@ -259,7 +283,7 @@ export function Signup() {
           viewBox="0 0 24 24"
           strokeWidth="1.5"
           stroke="currentColor"
-          className="size-5 absolute mt-90 mr-1.5 sm:mt-75.5 sm:mr-1.5"
+          className="signup-icon"
         >
           <path
             strokeLinecap="round"
@@ -267,11 +291,12 @@ export function Signup() {
             d="M16.5 10.5V6.75a4.5 4.5 0 1 0-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 0 0 2.25-2.25v-6.75a2.25 2.25 0 0 0-2.25-2.25H6.75a2.25 2.25 0 0 0-2.25 2.25v6.75a2.25 2.25 0 0 0 2.25 2.25Z"
           />
         </svg>
-        <div className="flex gap-2 items-center mt-3">
+        </div>
+        <div className="signup-check-row">
           <input
             type="checkbox"
             id="rules"
-            className="flex mr-1 size-5"
+            className="signup-checkbox"
             checked={userSignupInfo.ruleschecked}
             required
             onInvalid={(e) => {
@@ -295,11 +320,11 @@ export function Signup() {
             را مطالعه کردم و شرایط را میپذیرم
           </p>
         </div>
-        <div className="flex gap-2 items-center mb-3">
+        <div className="signup-check-row">
           <input
             type="checkbox"
             id="news"
-            className="flex mr-1 size-5"
+            className="signup-checkbox"
             checked={userSignupInfo.newschecked}
             onChange={(e) =>
               setUserSignupInfo((prev) => ({
@@ -312,12 +337,12 @@ export function Signup() {
         </div>
         <button
           type="submit"
-          className="border-1 flex justify-center w-70 ml-auto mr-auto p-2 rounded-2xl cursor-pointer"
+          className="signup-submit"
           disabled={isLoading}
         >
           {isLoading ? "در حال ثبت نام..." : "ثبت نام"}
         </button>
       </form>
-    </>
+    </main>
   );
 }

@@ -14,3 +14,14 @@ The React Compiler is not enabled on this template because of its impact on dev 
 ## Expanding the ESLint configuration
 
 If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+
+## Backend
+
+Install dependencies with `npm install`, then run the API and Vite in separate terminals:
+
+```sh
+npm run server
+npm run dev
+```
+
+The API runs on `http://127.0.0.1:5000`; Vite proxies `/api` requests to it. SQLite data is stored in `server/data/dashboard.sqlite`. Copy `.env.example` to `.env` and set a private `JWT_SECRET` before deployment. The fallback secret is for local development only.

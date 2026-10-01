@@ -1,7 +1,8 @@
-import { mockSignup } from "./mockSignup";
-import { mockLogin } from "./mockLogin";
+import { apiRequest } from "./api";
 
-const USE_MOCK = true;
+const formatLocalDateKey = (date) =>
+  `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+
 export function handleRoleSelection(
   roleSelectionStatus,
   setRoleSelectionStatus,
@@ -24,27 +25,20 @@ export async function handleLoginSubmit(e, setError, setLoading, username, passw
   setLoading(true);
 
   try {
-    const response = USE_MOCK
-      ? await mockLogin({ username, password })
-      : await fetch(/* ... */);
-
-    let data = {};
-    try {
-      data = await response.json();
-    } catch {
-      /* keep data as {} */
-    }
-
-    if (!response.ok) {
-      setError(data.message || "خطای دریافت اطلاعات");
-      return;
-    }
-
+    const data = await apiRequest("/auth/login", {
+      method: "POST",
+      authenticated: false,
+      body: {
+        username,
+        password,
+        loginDate: formatLocalDateKey(new Date()),
+      },
+    });
     localStorage.setItem("token", data.token);
+    if (data.user?.role) localStorage.setItem("userRole", data.user.role);
     navigate("/dashboard", { replace: true });
-  } catch (err) {
-    console.log("caught error:", err);
-    setError("ارتباط با سرور برقرار نشد");
+  } catch (error) {
+    setError(error.message || "ارتباط با سرور برقرار نشد");
   } finally {
     setLoading(false);
   }
@@ -105,40 +99,26 @@ export const handleSignupSubmit = async (
     password: userSignupInfo.password,
     rulesCheck: userSignupInfo.ruleschecked,
     newsCheck: userSignupInfo.newschecked,
+    role: localStorage.getItem("userRole") || "سایر",
   };
   setIsLoading(true);
   try {
-    const res = USE_MOCK
-      ? await mockSignup(payload)
-      : await fetch("http://localhost:5000/api/auth/signup", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
-        });
-
-    let data = {};
-    try {
-      data = await res.json();
-    } catch {
-      /* keep data as {} */
-    }
-
-    if (res.ok) {
-      navigate("/signin", {
-        replace: true,
-        state: { message: "حساب کاربری ساخته شد! لطفا وارد شوید." },
-      });
-    } else if (data.field) {
-      setError({ [data.field]: data.message });
-    } else if (data.errors) {
-      setError(data.errors);
-    } else {
-      setError({ general: data.message || "مشکلی پیش آمد. دوباره تلاش کنید." });
-    }
-  } catch (err) {
-    setError({
-      general: "ارتباط با سرور برقرار نشد. اتصال اینترنت خود را بررسی کنید.",
+    await apiRequest("/auth/signup", {
+      method: "POST",
+      authenticated: false,
+      body: payload,
     });
+    navigate("/signin", {
+      replace: true,
+      state: { message: "حساب کاربری ساخته شد! لطفا وارد شوید." },
+    });
+  } catch (err) {
+    setError(
+      err.errors ||
+        (err.field
+          ? { [err.field]: err.message }
+          : { general: err.message || "ارتباط با سرور برقرار نشد. دوباره تلاش کنید." }),
+    );
   } finally {
     setIsLoading(false);
   }

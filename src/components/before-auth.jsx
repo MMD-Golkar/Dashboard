@@ -1,4 +1,3 @@
-import "../styles/before-auth.css";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { handleRoleSelection, handleRoleButtons } from "../utils/handlers";
@@ -6,15 +5,26 @@ import { roles } from "../utils/lists";
 export function UserType() {
   const [role, setRole] = useState("انتخاب مهارت / تخصص");
   const [roleSelectionStatus, setRoleSelectionStatus] = useState(false);
+  const [isNavigating, setIsNavigating] = useState(false);
   const navigate = useNavigate();
+
+  const continueToSignin = () => {
+    setIsNavigating(true);
+    const delay = window.matchMedia("(prefers-reduced-motion: reduce)").matches
+      ? 0
+      : 180;
+    window.setTimeout(() => navigate("/signin"), delay);
+  };
+
   return (
-    <>
-      <h1 className="flex justify-center mt-30 sm:text-2xl lg:text-3xl text-center">
+    <main className={`before-auth-page ${isNavigating ? "is-leaving" : ""}`}>
+      <section className="before-auth-content">
+      <h1 className="before-auth-title">
         به منظور ایجاد بهترین تجربه برای کاربران لطفا قبل از ورود نقش یا موقعیت
         شغلی خود را شرح دهید
       </h1>
       <button
-        className="border-1 pl-5 pr-5 pt-3 pb-3 rounded-lg text-sm sm:text-sm relative md:text-md lg:text-lg xl:text-xl mr-auto ml-auto flex mt-24 cursor-pointer items-center"
+        className="before-auth-select"
         onClick={() =>
           handleRoleSelection(roleSelectionStatus, setRoleSelectionStatus)
         }
@@ -63,43 +73,35 @@ export function UserType() {
         </span>
       </button>
 
-      <div className="grid grid-cols-2 gap-3 mt-5 max-w-md ml-auto mr-auto [&>button]:border-1 md:[&>button]:pt-4 md:[&>button]:pb-4 md:[&>button]:pr-7 md:[&>button]:pl-7 [&>button]:rounded-md [&>button]:p-2 [&>button]:hover:bg-blue-400 [&>button]:cursor-pointer">
-        {roles.map((role, index) => (
+      <div className="before-auth-options">
+        {roles.map((option, index) => (
           <button
-            key={role}
+            key={option}
             onClick={() =>
               handleRoleButtons(
                 roleSelectionStatus,
                 setRoleSelectionStatus,
-                role,
+                option,
                 setRole,
               )
             }
             style={{
               transitionDelay: roleSelectionStatus ? `${index * 60}ms` : "0ms",
-              display: !roleSelectionStatus ? "none" : "inline",
+              display: !roleSelectionStatus ? "none" : "block",
             }}
-            className={`border rounded-xl p-3 text-sm sm:text-base cursor-pointer transition-all duration-300 ease-out active:scale-95 ${
-              index === roles.length - 1
-                ? "col-span-2 justify-self-center w-1/2"
-                : ""
-            } ${
-              roleSelectionStatus
-                ? "opacity-100 translate-y-0"
-                : "opacity-0 -translate-y-2 pointer-events-none"
-            } ${
-              role === role
-                ? "border-blue-500 bg-blue-500 text-white shadow-md"
-                : "border-gray-300 hover:border-blue-500 hover:bg-blue-50"
+            className={`before-auth-option ${
+              index === roles.length - 1 ? "before-auth-option-other" : ""
+            } ${option === role ? "is-selected" : ""} ${
+              roleSelectionStatus ? "is-open" : "is-closed"
             }`}
           >
-            {role}
+            {option}
           </button>
         ))}
       </div>
 
       {role !== "انتخاب مهارت / تخصص" && (
-        <h3 className="mt-20 text-center sm:text-2xl lg:text-3xl">
+        <h3 className="before-auth-confirmation">
           محتوا و چیدمان صفحه شخصی شما مناسب برای {role}{" "}
           {role === "سایر" && "مشاغل"} خواهد بود
         </h3>
@@ -107,8 +109,9 @@ export function UserType() {
 
       {role !== "انتخاب مهارت / تخصص" && (
         <button
-          className="border-1 pt-4 pb-4 pl-15 pr-15 rounded-full flex mr-auto ml-auto mt-10 cursor-pointer hover:bg-blue-500 hover:text-white md:pt-6 md:pb-6 md:pl-20 md:pr-20"
-          onClick={() => navigate("/signin")}
+          className="before-auth-next"
+          onClick={continueToSignin}
+          disabled={isNavigating}
         >
           <svg
             xmlns="http://www.w3.org/2000/svg"
@@ -127,6 +130,7 @@ export function UserType() {
           بعدی
         </button>
       )}
-    </>
+      </section>
+    </main>
   );
 }
