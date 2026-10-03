@@ -89,7 +89,7 @@ const dashboardDefaults = {
   loginDays: [],
   weatherSelection: null,
   theme: "light",
-  visibleWidgets: { tasks: true, notes: true, streak: true, weather: true },
+  visibleWidgets: { tasks: true, notes: true, streak: true, weather: true , flashcard: true},
 };
 
 const readDashboardState = (userId) => {

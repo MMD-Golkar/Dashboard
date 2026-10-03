@@ -1,91 +1,23 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { apiRequest } from "../utils/api";
+import {
+  widgetCategories,
+  defaultWidgetOrder,
+  weekDays,
+  recommendedLocations,
+  widgetOrderByRole,
+} from "../utils/lists";
 
-const widgetCategories = [
-  { id: "tasks", label: "فعالیت ها" },
-  { id: "notes", label: "نوشته ها" },
-  { id: "streak", label: "تداوم" },
-  { id: "weather", label: "محیط" },
-];
-
-const defaultWidgetOrder = ["tasks", "notes", "streak", "weather"];
-const widgetOrderByRole = {
-  "دانش آموز": ["tasks", "streak", "notes", "weather"],
-  "توسعه دهنده": ["tasks", "notes", "streak", "weather"],
-  "طراحی و ادیت": ["notes", "tasks", "streak", "weather"],
-  "مدیر محصول": ["tasks", "notes", "streak", "weather"],
-  "بازاریابی و فروش": ["tasks", "notes", "weather", "streak"],
-  "کارآفرین": ["tasks", "streak", "notes", "weather"],
-  "فریلنسر": ["notes", "tasks", "streak", "weather"],
-  "مدرس , معلم": ["notes", "tasks", "streak", "weather"],
-  سایر: defaultWidgetOrder,
-};
-
-const weekDays = [
-  { key: 6, short: "ش", label: "شنبه" },
-  { key: 0, short: "ی", label: "یکشنبه" },
-  { key: 1, short: "د", label: "دوشنبه" },
-  { key: 2, short: "س", label: "سه‌شنبه" },
-  { key: 3, short: "چ", label: "چهارشنبه" },
-  { key: 4, short: "پ", label: "پنجشنبه" },
-  { key: 5, short: "ج", label: "جمعه" },
-];
-
-const recommendedLocations = [
-  { id: "tehran", name: "تهران", latitude: 35.6892, longitude: 51.389, admin1: "استان تهران", country: "ایران" },
-  { id: "mashhad", name: "مشهد", latitude: 36.2972, longitude: 59.6067, admin1: "استان خراسان رضوی", country: "ایران" },
-  { id: "isfahan", name: "اصفهان", latitude: 32.6546, longitude: 51.668, admin1: "استان اصفهان", country: "ایران" },
-  { id: "shiraz", name: "شیراز", latitude: 29.5918, longitude: 52.5837, admin1: "استان فارس", country: "ایران" },
-  { id: "tabriz", name: "تبریز", latitude: 38.0962, longitude: 46.2738, admin1: "استان آذربایجان شرقی", country: "ایران" },
-];
-
-const formatDateInTimeZone = (date, timeZone) => {
-  const options = {
-    ...(timeZone ? { timeZone } : {}),
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  };
-  const parts = Object.fromEntries(
-    new Intl.DateTimeFormat("en-US", options)
-      .formatToParts(date)
-      .map(({ type, value }) => [type, value]),
-  );
-  return `${parts.year}-${parts.month}-${parts.day}`;
-};
-
-const getPreviousDate = (dateKey) => {
-  const [year, month, day] = dateKey.split("-").map(Number);
-  const date = new Date(Date.UTC(year, month - 1, day));
-  date.setUTCDate(date.getUTCDate() - 1);
-  return date.toISOString().slice(0, 10);
-};
-
-const getWeekDateKeys = (dateKey) => {
-  const [year, month, day] = dateKey.split("-").map(Number);
-  const saturday = new Date(Date.UTC(year, month - 1, day));
-  saturday.setUTCDate(saturday.getUTCDate() - ((saturday.getUTCDay() + 1) % 7));
-
-  return weekDays.map((_, index) => {
-    const weekDate = new Date(saturday);
-    weekDate.setUTCDate(saturday.getUTCDate() + index);
-    return weekDate.toISOString().slice(0, 10);
-  });
-};
-
-const getCurrentLoginStreak = (loginDays, today) => {
-  const loggedInDates = new Set(loginDays);
-  let currentDate = loggedInDates.has(today) ? today : getPreviousDate(today);
-  let streak = 0;
-
-  while (loggedInDates.has(currentDate)) {
-    streak += 1;
-    currentDate = getPreviousDate(currentDate);
-  }
-
-  return streak;
-};
+import {
+  formatDateInTimeZone,
+  getPreviousDate,
+  getWeekDateKeys,
+  getCurrentLoginStreak,
+  searchWeatherLocations,
+  fetchCurrentWeather,
+  getWeatherDescription
+} from "../utils/handlers";
 
 function RemoveWidgetButton({ widgetLabel, onRemove }) {
   return (
@@ -104,65 +36,19 @@ function RemoveWidgetButton({ widgetLabel, onRemove }) {
         strokeWidth="1.8"
         aria-hidden="true"
       >
-        <path strokeLinecap="round" strokeLinejoin="round" d="m6 6 12 12M18 6 6 18" />
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          d="m6 6 12 12M18 6 6 18"
+        />
       </svg>
     </button>
   );
 }
 
-const searchWeatherLocations = async (query, signal) => {
-  const params = new URLSearchParams({
-    name: query,
-    count: "100",
-    language: "fa",
-    format: "json",
-  });
-  const response = await fetch(
-    `https://geocoding-api.open-meteo.com/v1/search?${params}`,
-    { signal },
-  );
-  if (!response.ok) throw new Error("Location search failed");
 
-  const data = await response.json();
-  return Array.isArray(data.results) ? data.results : [];
-};
 
-const fetchCurrentWeather = async (place) => {
-  const params = new URLSearchParams({
-    latitude: String(place.latitude),
-    longitude: String(place.longitude),
-    current:
-      "temperature_2m,apparent_temperature,relative_humidity_2m,weather_code,wind_speed_10m",
-    timezone: "auto",
-  });
-  const response = await fetch(`https://api.open-meteo.com/v1/forecast?${params}`);
-  if (!response.ok) throw new Error("Weather request failed");
 
-  const data = await response.json();
-  if (!data.current) throw new Error("Weather data unavailable");
-
-  return {
-    temperature: data.current.temperature_2m,
-    feelsLike: data.current.apparent_temperature,
-    humidity: data.current.relative_humidity_2m,
-    windSpeed: data.current.wind_speed_10m,
-    weatherCode: data.current.weather_code,
-  };
-};
-
-const getWeatherDescription = (code) => {
-  if (code === 0) return "آسمان صاف";
-  if (code === 1) return "عمدتاً صاف";
-  if (code === 2) return "کمی ابری";
-  if (code === 3) return "ابری";
-  if (code === 45 || code === 48) return "مه‌آلود";
-  if ([51, 53, 55, 56, 57].includes(code)) return "نم‌نم باران";
-  if ([61, 63, 65, 66, 67].includes(code)) return "بارانی";
-  if ([71, 73, 75, 77, 85, 86].includes(code)) return "برفی";
-  if ([80, 81, 82].includes(code)) return "رگبار";
-  if ([95, 96, 99].includes(code)) return "طوفانی";
-  return "وضعیت نامشخص";
-};
 
 export function Dashboard() {
   const navigate = useNavigate();
@@ -191,6 +77,7 @@ export function Dashboard() {
     notes: true,
     streak: true,
     weather: true,
+    flashcard: true,
   });
   const [selectedRole, setSelectedRole] = useState("سایر");
   const widgetOrder = widgetOrderByRole[selectedRole] || defaultWidgetOrder;
@@ -228,7 +115,9 @@ export function Dashboard() {
         const dashboard = response.dashboard;
         setNote(dashboard.note || "");
         setTodos(Array.isArray(dashboard.todos) ? dashboard.todos : []);
-        setLoginDays(Array.isArray(dashboard.loginDays) ? dashboard.loginDays : []);
+        setLoginDays(
+          Array.isArray(dashboard.loginDays) ? dashboard.loginDays : [],
+        );
         setWeatherSelection(dashboard.weatherSelection || null);
         setTheme(dashboard.theme === "dark" ? "dark" : "light");
         setVisibleWidgets({
@@ -266,20 +155,30 @@ export function Dashboard() {
       void apiRequest("/dashboard", {
         method: "PUT",
         body: { note, todos, weatherSelection, theme, visibleWidgets },
-      }).then(() => {
-        setDashboardError("");
-      }).catch((error) => {
-        if (error.status === 401) {
-          localStorage.removeItem("token");
-          navigate("/signin", { replace: true });
-          return;
-        }
-        setDashboardError(error.message || "ذخیره اطلاعات انجام نشد.");
-      });
+      })
+        .then(() => {
+          setDashboardError("");
+        })
+        .catch((error) => {
+          if (error.status === 401) {
+            localStorage.removeItem("token");
+            navigate("/signin", { replace: true });
+            return;
+          }
+          setDashboardError(error.message || "ذخیره اطلاعات انجام نشد.");
+        });
     }, 450);
 
     return () => window.clearTimeout(saveTimeout);
-  }, [dashboardStatus, note, todos, weatherSelection, theme, visibleWidgets, navigate]);
+  }, [
+    dashboardStatus,
+    note,
+    todos,
+    weatherSelection,
+    theme,
+    visibleWidgets,
+    navigate,
+  ]);
 
   useEffect(() => {
     const query = locationQuery.trim();
@@ -290,9 +189,7 @@ export function Dashboard() {
       try {
         const results = await searchWeatherLocations(query, controller.signal);
         setLocationResults(results);
-        setLocationError(
-          results.length ? "" : "مکانی با این نام پیدا نشد.",
-        );
+        setLocationError(results.length ? "" : "مکانی با این نام پیدا نشد.");
       } catch (error) {
         if (error.name !== "AbortError") {
           setLocationError("جستجوی مکان انجام نشد. دوباره تلاش کنید.");
@@ -372,10 +269,13 @@ export function Dashboard() {
   const selectTheme = (nextTheme) => {
     setTheme(nextTheme);
   };
-
+  
   if (dashboardStatus !== "ready") {
     return (
-      <main className="dashboard-page dashboard-loading-page" data-theme={theme}>
+      <main
+        className="dashboard-page dashboard-loading-page"
+        data-theme={theme}
+      >
         <section className="dashboard-loading-panel" aria-live="polite">
           <p role={dashboardStatus === "loading" ? "status" : "alert"}>
             {dashboardStatus === "loading"
@@ -419,9 +319,17 @@ export function Dashboard() {
             aria-hidden="true"
           >
             {isMenuOpen ? (
-              <path strokeLinecap="round" strokeLinejoin="round" d="m6 6 12 12M18 6 6 18" />
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="m6 6 12 12M18 6 6 18"
+              />
             ) : (
-              <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M4 6h16M4 12h16M4 18h16"
+              />
             )}
           </svg>
         </button>
@@ -460,13 +368,19 @@ export function Dashboard() {
                 className={isCategoriesOpen ? "is-expanded" : ""}
                 aria-hidden="true"
               >
-                <path strokeLinecap="round" strokeLinejoin="round" d="m6 9 6 6 6-6" />
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="m6 9 6 6 6-6"
+                />
               </svg>
             </button>
             <button
               className="dashboard-sidebar-desktop-toggle"
               type="button"
-              aria-label={isSidebarCollapsed ? "باز کردن نوار کناری" : "بستن نوار کناری"}
+              aria-label={
+                isSidebarCollapsed ? "باز کردن نوار کناری" : "بستن نوار کناری"
+              }
               aria-expanded={!isSidebarCollapsed}
               aria-controls="dashboard-navigation"
               onClick={() => setIsSidebarCollapsed((collapsed) => !collapsed)}
@@ -480,9 +394,17 @@ export function Dashboard() {
                 aria-hidden="true"
               >
                 {isSidebarCollapsed ? (
-                  <path strokeLinecap="round" strokeLinejoin="round" d="m9 18 6-6-6-6" />
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="m9 18 6-6-6-6"
+                  />
                 ) : (
-                  <path strokeLinecap="round" strokeLinejoin="round" d="m15 18-6-6 6-6" />
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="m15 18-6-6 6-6"
+                  />
                 )}
               </svg>
             </button>
@@ -500,7 +422,11 @@ export function Dashboard() {
                 strokeWidth="1.8"
                 aria-hidden="true"
               >
-                <path strokeLinecap="round" strokeLinejoin="round" d="m6 6 12 12M18 6 6 18" />
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="m6 6 12 12M18 6 6 18"
+                />
               </svg>
             </button>
           </div>
@@ -543,55 +469,70 @@ export function Dashboard() {
                 className={isSettingsOpen ? "is-expanded" : ""}
                 aria-hidden="true"
               >
-                <path strokeLinecap="round" strokeLinejoin="round" d="m6 9 6 6 6-6" />
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="m6 9 6 6 6-6"
+                />
               </svg>
             </button>
+            <div
+              className="dashboard-theme-settings"
+              id="dashboard-theme-settings"
+              hidden={!isSettingsOpen}
+            >
+              <p className="dashboard-setting-label">حالت نمایش</p>
               <div
-                className="dashboard-theme-settings"
-                id="dashboard-theme-settings"
-                hidden={!isSettingsOpen}
+                className="dashboard-theme-control"
+                role="group"
+                aria-label="حالت نمایش"
               >
-                <p className="dashboard-setting-label">حالت نمایش</p>
-                <div className="dashboard-theme-control" role="group" aria-label="حالت نمایش">
-                  <button
-                    className={`dashboard-theme-option ${theme === "light" ? "is-selected" : ""}`}
-                    type="button"
-                    aria-pressed={theme === "light"}
-                    onClick={() => selectTheme("light")}
+                <button
+                  className={`dashboard-theme-option ${theme === "light" ? "is-selected" : ""}`}
+                  type="button"
+                  aria-pressed={theme === "light"}
+                  onClick={() => selectTheme("light")}
+                >
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.7"
+                    aria-hidden="true"
                   >
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="1.7"
-                      aria-hidden="true"
-                    >
-                      <circle cx="12" cy="12" r="4" />
-                      <path strokeLinecap="round" d="M12 2v2m0 16v2M4.93 4.93l1.42 1.42m11.3 11.3 1.42 1.42M2 12h2m16 0h2M4.93 19.07l1.42-1.42m11.3-11.3 1.42-1.42" />
-                    </svg>
-                    روشن
-                  </button>
-                  <button
-                    className={`dashboard-theme-option ${theme === "dark" ? "is-selected" : ""}`}
-                    type="button"
-                    aria-pressed={theme === "dark"}
-                    onClick={() => selectTheme("dark")}
+                    <circle cx="12" cy="12" r="4" />
+                    <path
+                      strokeLinecap="round"
+                      d="M12 2v2m0 16v2M4.93 4.93l1.42 1.42m11.3 11.3 1.42 1.42M2 12h2m16 0h2M4.93 19.07l1.42-1.42m11.3-11.3 1.42-1.42"
+                    />
+                  </svg>
+                  روشن
+                </button>
+                <button
+                  className={`dashboard-theme-option ${theme === "dark" ? "is-selected" : ""}`}
+                  type="button"
+                  aria-pressed={theme === "dark"}
+                  onClick={() => selectTheme("dark")}
+                >
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.7"
+                    aria-hidden="true"
                   >
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="1.7"
-                      aria-hidden="true"
-                    >
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M20.9 13A9 9 0 0 1 11 3.1 9 9 0 1 0 20.9 13Z" />
-                    </svg>
-                    تاریک
-                  </button>
-                </div>
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M20.9 13A9 9 0 0 1 11 3.1 9 9 0 1 0 20.9 13Z"
+                    />
+                  </svg>
+                  تاریک
+                </button>
               </div>
+            </div>
           </section>
         </aside>
         {isSidebarCollapsed && (
@@ -611,7 +552,11 @@ export function Dashboard() {
               strokeWidth="1.8"
               aria-hidden="true"
             >
-              <path strokeLinecap="round" strokeLinejoin="round" d="m9 18 6-6-6-6" />
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="m9 18 6-6-6-6"
+              />
             </svg>
           </button>
         )}
@@ -623,12 +568,14 @@ export function Dashboard() {
           onClick={() => setIsMenuOpen(false)}
         />
 
-      <section className="dashboard-content">
-        <div className="dashboard-intro">
-          <p className="dashboard-dayline">مرور روزانه , place for weekday</p>
-          <h1 className="dashboard-title">روزت رو هیجان انگیز کن🎉</h1>
-          <p className="dashboard-subtitle">پیشرفت کوچک و مداوم چیزی فوق العاده پدید میاره</p>
-        </div>
+        <section className="dashboard-content">
+          <div className="dashboard-intro">
+            <p className="dashboard-dayline">مرور روزانه , place for weekday</p>
+            <h1 className="dashboard-title">روزت رو هیجان انگیز کن🎉</h1>
+            <p className="dashboard-subtitle">
+              پیشرفت کوچک و مداوم چیزی فوق العاده پدید میاره
+            </p>
+          </div>
 
           {dashboardError && (
             <p className="dashboard-save-error" role="alert">
@@ -636,340 +583,403 @@ export function Dashboard() {
             </p>
           )}
 
-        <div className="dashboard-grid">
-          {visibleWidgets.tasks && <div className="dashboard-card dashboard-card-tasks" style={{ order: widgetOrder.indexOf("tasks") }}>
-            <div className="dashboard-card-header">
-              <p className="dashboard-card-label">01 / فعالیت ها</p>
-              <div className="dashboard-card-tools">
-                <p className="dashboard-card-stat">
-                  {completedTodoCount}/{todos.length}
-                </p>
-                <RemoveWidgetButton
-                  widgetLabel="فعالیت ها"
-                  onRemove={() => toggleWidget("tasks")}
+          <div className="dashboard-grid">
+            {visibleWidgets.tasks && (
+              <div
+                className="dashboard-card dashboard-card-tasks"
+                style={{ order: widgetOrder.indexOf("tasks") }}
+              >
+                <div className="dashboard-card-header">
+                  <p className="dashboard-card-label">01 / فعالیت ها</p>
+                  <div className="dashboard-card-tools">
+                    <p className="dashboard-card-stat">
+                      {completedTodoCount}/{todos.length}
+                    </p>
+                    <RemoveWidgetButton
+                      widgetLabel="فعالیت ها"
+                      onRemove={() => toggleWidget("tasks")}
+                    />
+                  </div>
+                </div>
+
+                <h2 className="dashboard-card-title">مأموریت </h2>
+
+                {todos.length === 0 ? (
+                  <div className="dashboard-empty-state">
+                    <p>هیچ مأموریتی ندارید</p>
+                    <p className="dashboard-supporting-copy">
+                      یک مأموریت اضافه کنید برای برنامه ریزی بعدی
+                    </p>
+                  </div>
+                ) : (
+                  <ul className="dashboard-todo-list">
+                    {todos.map((todo) => (
+                      <li
+                        className={`dashboard-todo-item ${todo.completed ? "is-complete" : ""}`}
+                        key={todo.id}
+                      >
+                        <label className="dashboard-todo-label">
+                          <input
+                            type="checkbox"
+                            checked={todo.completed}
+                            onChange={() => toggleTodo(todo.id)}
+                          />
+                          <span>{todo.text}</span>
+                        </label>
+                        <button
+                          className="dashboard-todo-remove"
+                          type="button"
+                          aria-label={`حذف فعالیت ${todo.text}`}
+                          title={`حذف فعالیت ${todo.text}`}
+                          onClick={() => removeTodo(todo.id)}
+                        >
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="1.7"
+                            aria-hidden="true"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              d="M4 7h16m-10 4v6m4-6v6M5 7l1 13h12l1-13M9 7V4h6v3"
+                            />
+                          </svg>
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+
+                {isTodoComposerOpen && (
+                  <form className="dashboard-todo-form" onSubmit={addTodo}>
+                    <input
+                      className="dashboard-todo-input"
+                      type="text"
+                      value={todoDraft}
+                      onChange={(event) => setTodoDraft(event.target.value)}
+                      placeholder="عنوان فعالیت را وارد کنید"
+                      aria-label="عنوان فعالیت را وارد کنید"
+                      required
+                      autoFocus
+                    />
+                    <button className="dashboard-todo-submit" type="submit">
+                      افزودن
+                    </button>
+                  </form>
+                )}
+
+                <button
+                  className="dashboard-action"
+                  type="button"
+                  aria-expanded={isTodoComposerOpen}
+                  onClick={() => setIsTodoComposerOpen((open) => !open)}
+                >
+                  + اضافه کردن
+                </button>
+              </div>
+            )}
+
+            {visibleWidgets.notes && (
+              <div
+                className="dashboard-card dashboard-card-notes"
+                style={{ order: widgetOrder.indexOf("notes") }}
+              >
+                <div className="dashboard-card-header">
+                  <p className="dashboard-card-label">02 / نوشته ها</p>
+                  <div className="dashboard-card-tools">
+                    <p className="dashboard-card-mark">🖊</p>
+                    <RemoveWidgetButton
+                      widgetLabel="نوشته ها"
+                      onRemove={() => toggleWidget("notes")}
+                    />
+                  </div>
+                </div>
+
+                <h2 className="dashboard-card-title">یادداشت </h2>
+                <textarea
+                  rows={4}
+                  placeholder="یادداشت خود را وارد کنید..."
+                  className="dashboard-note-input"
+                  value={note}
+                  onChange={(e) => setNote(e.target.value)}
                 />
+                <p className="dashboard-note-count">کارکتر ها: {note.length}</p>
               </div>
-            </div>
+            )}
 
-            <h2 className="dashboard-card-title">مأموریت </h2>
+            {visibleWidgets.streak && (
+              <div
+                className="dashboard-card dashboard-card-streak"
+                style={{ order: widgetOrder.indexOf("streak") }}
+              >
+                <div className="dashboard-card-header">
+                  <p className="dashboard-card-label">03 / تداوم</p>
+                  <div className="dashboard-card-tools">
+                    <p className="dashboard-card-mark">↗</p>
+                    <RemoveWidgetButton
+                      widgetLabel="تداوم"
+                      onRemove={() => toggleWidget("streak")}
+                    />
+                  </div>
+                </div>
 
-            {todos.length === 0 ? (
-              <div className="dashboard-empty-state">
-                <p>هیچ مأموریتی ندارید</p>
+                <h2 className="dashboard-card-title">عادت ها </h2>
+                <p className="dashboard-streak-date">{streakDisplayDate}</p>
+                <p className="dashboard-streak-count"> روزها : {loginStreak}</p>
+
+                <div
+                  className="dashboard-login-week"
+                  role="list"
+                  aria-label="روزهای ورود این هفته"
+                >
+                  {weekDays.map((weekDay, index) => {
+                    const dateKey = weekDateKeys[index];
+                    const hasLoggedIn = loggedInDates.has(dateKey);
+
+                    return (
+                      <div
+                        className={`dashboard-login-day ${hasLoggedIn ? "is-logged-in" : ""}`}
+                        key={dateKey}
+                        role="listitem"
+                        aria-label={`${weekDay.label}: ${hasLoggedIn ? "ورود ثبت شد" : "بدون ورود"}`}
+                        title={weekDay.label}
+                      >
+                        <span
+                          className="dashboard-login-circle"
+                          aria-hidden="true"
+                        >
+                          {weekDay.short}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                <p className="dashboard-streak-label">ورود متوالی روزانه</p>
                 <p className="dashboard-supporting-copy">
-                  یک مأموریت اضافه کنید برای برنامه ریزی بعدی
+                  همینطور پرقدرت ادامه بده
                 </p>
+                {/* remember to add a weekday login check here */}
               </div>
-            ) : (
-              <ul className="dashboard-todo-list">
-                {todos.map((todo) => (
-                  <li
-                    className={`dashboard-todo-item ${todo.completed ? "is-complete" : ""}`}
-                    key={todo.id}
-                  >
-                    <label className="dashboard-todo-label">
+            )}
+
+            {visibleWidgets.weather && (
+              <div
+                className="dashboard-card dashboard-card-weather"
+                style={{ order: widgetOrder.indexOf("weather") }}
+              >
+                <div className="dashboard-card-header">
+                  <p className="dashboard-card-label">04 / محیط</p>
+                  <div className="dashboard-card-tools">
+                    <p className="dashboard-card-mark">☀</p>
+                    <RemoveWidgetButton
+                      widgetLabel="محیط"
+                      onRemove={() => toggleWidget("weather")}
+                    />
+                  </div>
+                </div>
+
+                <h2 className="dashboard-card-title">آب و هوا</h2>
+
+                <button
+                  className="dashboard-location-button"
+                  type="button"
+                  aria-expanded={isLocationPickerOpen}
+                  onClick={() => {
+                    setIsLocationPickerOpen((open) => !open);
+                    setLocationError("");
+                  }}
+                >
+                  {weatherSelection ? "تغییر مکان" : "مکانی را انتخاب کنید"}
+                </button>
+
+                {isLocationPickerOpen && (
+                  <div className="dashboard-location-picker">
+                    <div className="dashboard-location-search">
                       <input
-                        type="checkbox"
-                        checked={todo.completed}
-                        onChange={() => toggleTodo(todo.id)}
+                        className="dashboard-location-query"
+                        type="search"
+                        value={locationQuery}
+                        onChange={updateLocationQuery}
+                        placeholder="نام شهر یا کشور"
+                        aria-label="نام شهر یا کشور"
                       />
-                      <span>{todo.text}</span>
-                    </label>
-                    <button
-                      className="dashboard-todo-remove"
-                      type="button"
-                      aria-label={`حذف فعالیت ${todo.text}`}
-                      title={`حذف فعالیت ${todo.text}`}
-                      onClick={() => removeTodo(todo.id)}
-                    >
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="1.7"
+                      <span
+                        className="dashboard-location-search-icon"
                         aria-hidden="true"
                       >
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M4 7h16m-10 4v6m4-6v6M5 7l1 13h12l1-13M9 7V4h6v3" />
-                      </svg>
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            )}
-
-            {isTodoComposerOpen && (
-              <form className="dashboard-todo-form" onSubmit={addTodo}>
-                <input
-                  className="dashboard-todo-input"
-                  type="text"
-                  value={todoDraft}
-                  onChange={(event) => setTodoDraft(event.target.value)}
-                  placeholder="عنوان فعالیت را وارد کنید"
-                  aria-label="عنوان فعالیت را وارد کنید"
-                  required
-                  autoFocus
-                />
-                <button className="dashboard-todo-submit" type="submit">
-                  افزودن
-                </button>
-              </form>
-            )}
-
-            <button
-              className="dashboard-action"
-              type="button"
-              aria-expanded={isTodoComposerOpen}
-              onClick={() => setIsTodoComposerOpen((open) => !open)}
-            >
-              + اضافه کردن
-            </button>
-          </div>}
-
-          {visibleWidgets.notes && <div className="dashboard-card dashboard-card-notes" style={{ order: widgetOrder.indexOf("notes") }}>
-            <div className="dashboard-card-header">
-              <p className="dashboard-card-label">02 / نوشته ها</p>
-              <div className="dashboard-card-tools">
-                <p className="dashboard-card-mark">🖊</p>
-                <RemoveWidgetButton
-                  widgetLabel="نوشته ها"
-                  onRemove={() => toggleWidget("notes")}
-                />
-              </div>
-            </div>
-
-            <h2 className="dashboard-card-title">یادداشت </h2>
-            <textarea
-              rows={4}
-              placeholder="یادداشت خود را وارد کنید..."
-              className="dashboard-note-input"
-              value={note}
-              onChange={(e) => setNote(e.target.value)}
-            />
-            <p className="dashboard-note-count">کارکتر ها: {note.length}</p>
-          </div>}
-
-          {visibleWidgets.streak && <div className="dashboard-card dashboard-card-streak" style={{ order: widgetOrder.indexOf("streak") }}>
-            <div className="dashboard-card-header">
-              <p className="dashboard-card-label">03 / تداوم</p>
-              <div className="dashboard-card-tools">
-                <p className="dashboard-card-mark">↗</p>
-                <RemoveWidgetButton
-                  widgetLabel="تداوم"
-                  onRemove={() => toggleWidget("streak")}
-                />
-              </div>
-            </div>
-
-            <h2 className="dashboard-card-title">عادت ها </h2>
-            <p className="dashboard-streak-date">{streakDisplayDate}</p>
-            <p className="dashboard-streak-count"> روزها : {loginStreak}</p>
-
-            <div
-              className="dashboard-login-week"
-              role="list"
-              aria-label="روزهای ورود این هفته"
-            >
-              {weekDays.map((weekDay, index) => {
-                const dateKey = weekDateKeys[index];
-                const hasLoggedIn = loggedInDates.has(dateKey);
-
-                return (
-                  <div
-                    className={`dashboard-login-day ${hasLoggedIn ? "is-logged-in" : ""}`}
-                    key={dateKey}
-                    role="listitem"
-                    aria-label={`${weekDay.label}: ${hasLoggedIn ? "ورود ثبت شد" : "بدون ورود"}`}
-                    title={weekDay.label}
-                  >
-                    <span className="dashboard-login-circle" aria-hidden="true">
-                      {weekDay.short}
-                    </span>
-                  </div>
-                );
-              })}
-            </div>
-
-            <p className="dashboard-streak-label">ورود متوالی روزانه</p>
-            <p className="dashboard-supporting-copy">همینطور پرقدرت ادامه بده</p>
-            {/* remember to add a weekday login check here */}
-          </div>}
-
-          {visibleWidgets.weather && <div className="dashboard-card dashboard-card-weather" style={{ order: widgetOrder.indexOf("weather") }}>
-            <div className="dashboard-card-header">
-              <p className="dashboard-card-label">04 / محیط</p>
-              <div className="dashboard-card-tools">
-                <p className="dashboard-card-mark">☀</p>
-                <RemoveWidgetButton
-                  widgetLabel="محیط"
-                  onRemove={() => toggleWidget("weather")}
-                />
-              </div>
-            </div>
-
-            <h2 className="dashboard-card-title">آب و هوا</h2>
-
-            <button
-              className="dashboard-location-button"
-              type="button"
-              aria-expanded={isLocationPickerOpen}
-              onClick={() => {
-                setIsLocationPickerOpen((open) => !open);
-                setLocationError("");
-              }}
-            >
-              {weatherSelection ? "تغییر مکان" : "مکانی را انتخاب کنید"}
-            </button>
-
-            {isLocationPickerOpen && (
-              <div className="dashboard-location-picker">
-                <div className="dashboard-location-search">
-                  <input
-                    className="dashboard-location-query"
-                    type="search"
-                    value={locationQuery}
-                    onChange={updateLocationQuery}
-                    placeholder="نام شهر یا کشور"
-                    aria-label="نام شهر یا کشور"
-                  />
-                  <span
-                    className="dashboard-location-search-icon"
-                    aria-hidden="true"
-                  >
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="1.8"
-                      aria-hidden="true"
-                    >
-                      <circle cx="10.8" cy="10.8" r="6.8" />
-                      <path strokeLinecap="round" d="m16 16 4.5 4.5" />
-                    </svg>
-                  </span>
-                </div>
-                {!normalizedLocationQuery && matchingRecommendedLocations.length > 0 && (
-                  <section
-                    className="dashboard-location-recommendations"
-                    aria-label="مکان‌های پیشنهادی"
-                  >
-                    <p>مکان‌های پیشنهادی</p>
-                    <div>
-                      {matchingRecommendedLocations.map((place) => (
-                        <button
-                          className="dashboard-location-recommendation"
-                          key={place.id}
-                          type="button"
-                          aria-pressed={weatherSelection?.place?.id === place.id}
-                          disabled={isWeatherLoading || isLocationSearchLoading}
-                          onClick={() => selectWeatherLocation(place)}
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="1.8"
+                          aria-hidden="true"
                         >
-                          {place.name}
-                        </button>
-                      ))}
+                          <circle cx="10.8" cy="10.8" r="6.8" />
+                          <path strokeLinecap="round" d="m16 16 4.5 4.5" />
+                        </svg>
+                      </span>
                     </div>
-                  </section>
+                    {!normalizedLocationQuery &&
+                      matchingRecommendedLocations.length > 0 && (
+                        <section
+                          className="dashboard-location-recommendations"
+                          aria-label="مکان‌های پیشنهادی"
+                        >
+                          <p>مکان‌های پیشنهادی</p>
+                          <div>
+                            {matchingRecommendedLocations.map((place) => (
+                              <button
+                                className="dashboard-location-recommendation"
+                                key={place.id}
+                                type="button"
+                                aria-pressed={
+                                  weatherSelection?.place?.id === place.id
+                                }
+                                disabled={
+                                  isWeatherLoading || isLocationSearchLoading
+                                }
+                                onClick={() => selectWeatherLocation(place)}
+                              >
+                                {place.name}
+                              </button>
+                            ))}
+                          </div>
+                        </section>
+                      )}
+                    {isLocationSearchLoading && (
+                      <p className="dashboard-location-status" role="status">
+                        در حال جستجو...
+                      </p>
+                    )}
+                    {normalizedLocationQuery.length === 1 && (
+                      <p className="dashboard-location-status" role="status">
+                        برای جستجو حداقل دو حرف وارد کنید.
+                      </p>
+                    )}
+                    {locationError && (
+                      <p className="dashboard-location-error" role="alert">
+                        {locationError}
+                      </p>
+                    )}
+                    {locationResults.length > 0 && (
+                      <>
+                        <p className="dashboard-location-results-count">
+                          {locationResults.length} مکان پیدا شد
+                        </p>
+                        <ul className="dashboard-location-results">
+                          {locationResults.map((place) => (
+                            <li
+                              key={`${place.id}-${place.latitude}-${place.longitude}`}
+                            >
+                              <button
+                                className="dashboard-location-result"
+                                type="button"
+                                disabled={isWeatherLoading}
+                                onClick={() => selectWeatherLocation(place)}
+                              >
+                                <span>{place.name}</span>
+                                <small>
+                                  {[place.admin1, place.country]
+                                    .filter(Boolean)
+                                    .join("، ")}
+                                </small>
+                              </button>
+                            </li>
+                          ))}
+                        </ul>
+                      </>
+                    )}
+                  </div>
                 )}
-                {isLocationSearchLoading && (
+
+                {isWeatherLoading && (
                   <p className="dashboard-location-status" role="status">
-                    در حال جستجو...
+                    در حال دریافت وضعیت هوا...
                   </p>
                 )}
-                {normalizedLocationQuery.length === 1 && (
-                  <p className="dashboard-location-status" role="status">
-                    برای جستجو حداقل دو حرف وارد کنید.
-                  </p>
-                )}
-                {locationError && (
-                  <p className="dashboard-location-error" role="alert">
-                    {locationError}
-                  </p>
-                )}
-                {locationResults.length > 0 && (
+
+                {weatherSelection ? (
                   <>
-                    <p className="dashboard-location-results-count">
-                      {locationResults.length} مکان پیدا شد
-                    </p>
-                    <ul className="dashboard-location-results">
-                      {locationResults.map((place) => (
-                        <li key={`${place.id}-${place.latitude}-${place.longitude}`}>
-                          <button
-                            className="dashboard-location-result"
-                            type="button"
-                            disabled={isWeatherLoading}
-                            onClick={() => selectWeatherLocation(place)}
-                          >
-                            <span>{place.name}</span>
-                            <small>
-                              {[place.admin1, place.country]
-                                .filter(Boolean)
-                                .join("، ")}
-                            </small>
-                          </button>
-                        </li>
-                      ))}
-                    </ul>
+                    <div className="dashboard-weather-summary">
+                      <p className="dashboard-weather-temperature">
+                        {Math.round(weatherSelection.weather.temperature)}
+                        <span>°C</span>
+                      </p>
+                      <p className="dashboard-weather-condition">
+                        {getWeatherDescription(
+                          weatherSelection.weather.weatherCode,
+                        )}
+                      </p>
+                    </div>
+                    <div className="dashboard-weather-details">
+                      <p>
+                        <span>مکان</span>
+                        <strong>
+                          {weatherSelection.place.name}
+                          {weatherSelection.place.admin1
+                            ? `، ${weatherSelection.place.admin1}`
+                            : ""}
+                        </strong>
+                      </p>
+                      <p>
+                        <span>کشور</span>
+                        <strong>{weatherSelection.place.country}</strong>
+                      </p>
+                      <p>
+                        <span>حس‌شده</span>
+                        <strong>
+                          {Math.round(weatherSelection.weather.feelsLike)}°C
+                        </strong>
+                      </p>
+                      <p>
+                        <span>رطوبت</span>
+                        <strong>{weatherSelection.weather.humidity}%</strong>
+                      </p>
+                      <p>
+                        <span>سرعت باد</span>
+                        <strong>
+                          {Math.round(weatherSelection.weather.windSpeed)} km/h
+                        </strong>
+                      </p>
+                    </div>
                   </>
+                ) : (
+                  <p className="dashboard-weather-empty">
+                    برای نمایش وضعیت هوا یک مکان انتخاب کنید.
+                  </p>
                 )}
               </div>
             )}
 
-            {isWeatherLoading && (
-              <p className="dashboard-location-status" role="status">
-                در حال دریافت وضعیت هوا...
-              </p>
-            )}
+            {visibleWidgets.flashcard && (
+              <div
+                className="dashboard-card dashboard-card-notes"
+                style={{ order: widgetOrder.indexOf("flashcard") }}
+              >
+                <div className="dashboard-card-header">
+                  <p className="dashboard-card-label">05 / کارت مرور</p>
+                  <div className="dashboard-card-tools">
+                    <p className="dashboard-card-mark">{widgetCategories[4].image}</p>
+                    <RemoveWidgetButton
+                      widgetLabel="کارت مرور"
+                      onRemove={() => toggleWidget("flashcard")}
+                    />
+                  </div>
+                </div>
+                
+                <div className="flashcards-container">
+                    <input type="text" placeholder="کارت جدید اضافه کنید..." className="p-3"/>
+                </div>
 
-            {weatherSelection ? (
-              <>
-                <div className="dashboard-weather-summary">
-                  <p className="dashboard-weather-temperature">
-                    {Math.round(weatherSelection.weather.temperature)}
-                    <span>°C</span>
-                  </p>
-                  <p className="dashboard-weather-condition">
-                    {getWeatherDescription(weatherSelection.weather.weatherCode)}
-                  </p>
-                </div>
-                <div className="dashboard-weather-details">
-                  <p>
-                    <span>مکان</span>
-                    <strong>
-                      {weatherSelection.place.name}
-                      {weatherSelection.place.admin1
-                        ? `، ${weatherSelection.place.admin1}`
-                        : ""}
-                    </strong>
-                  </p>
-                  <p>
-                    <span>کشور</span>
-                    <strong>{weatherSelection.place.country}</strong>
-                  </p>
-                  <p>
-                    <span>حس‌شده</span>
-                    <strong>
-                      {Math.round(weatherSelection.weather.feelsLike)}°C
-                    </strong>
-                  </p>
-                  <p>
-                    <span>رطوبت</span>
-                    <strong>{weatherSelection.weather.humidity}%</strong>
-                  </p>
-                  <p>
-                    <span>سرعت باد</span>
-                    <strong>{Math.round(weatherSelection.weather.windSpeed)} km/h</strong>
-                  </p>
-                </div>
-              </>
-            ) : (
-              <p className="dashboard-weather-empty">
-                برای نمایش وضعیت هوا یک مکان انتخاب کنید.
-              </p>
+              </div>
             )}
-          </div>}
-        </div>
-      </section>
+          </div>
+        </section>
       </div>
     </main>
   );
