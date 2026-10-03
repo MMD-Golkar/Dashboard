@@ -73,14 +73,14 @@ const recommendedLocations = [
 ];
 
 const widgetOrderByRole = {
-  "دانش آموز": ["tasks", "streak", "notes", "weather"],
-  "توسعه دهنده": ["tasks", "notes", "streak", "weather"],
-  "طراحی و ادیت": ["notes", "tasks", "streak", "weather"],
-  "مدیر محصول": ["tasks", "notes", "streak", "weather"],
-  "بازاریابی و فروش": ["tasks", "notes", "weather", "streak"],
-  "کارآفرین": ["tasks", "streak", "notes", "weather"],
-  "فریلنسر": ["notes", "tasks", "streak", "weather"],
-  "مدرس , معلم": ["notes", "tasks", "streak", "weather"],
+  "دانش آموز": ["tasks", "streak", "notes", "weather", "flashcard"],
+  "توسعه دهنده": ["tasks", "notes", "streak", "weather", "flashcard"],
+  "طراحی و ادیت": ["notes", "tasks", "streak", "weather", "flashcard"],
+  "مدیر محصول": ["tasks", "notes", "streak", "weather", "flashcard"],
+  "بازاریابی و فروش": ["tasks", "notes", "weather", "streak", "flashcard"],
+  "کارآفرین": ["tasks", "streak", "notes", "weather", "flashcard"],
+  "فریلنسر": ["notes", "tasks", "streak", "weather", "flashcard"],
+  "مدرس , معلم": ["notes", "tasks", "streak", "weather", "flashcard"],
   "سایر": defaultWidgetOrder,
 };
 

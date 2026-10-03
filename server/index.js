@@ -44,18 +44,24 @@ database.exec(`
     user_id TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
     note TEXT NOT NULL DEFAULT '',
     todos_json TEXT NOT NULL DEFAULT '[]',
+    flashcards_json TEXT NOT NULL DEFAULT '[]',
     login_days_json TEXT NOT NULL DEFAULT '[]',
     weather_selection_json TEXT,
     theme TEXT NOT NULL DEFAULT 'light',
-    visible_widgets_json TEXT NOT NULL DEFAULT '{"tasks":true,"notes":true,"streak":true,"weather":true}',
+    visible_widgets_json TEXT NOT NULL DEFAULT '{"tasks":true,"notes":true,"streak":true,"weather":true,"flashcard":true}',
     updated_at TEXT NOT NULL
   );
 `);
 
+const dashboardColumns = database.pragma("table_info(dashboard_state)");
+if (!dashboardColumns.some((column) => column.name === "flashcards_json")) {
+  database.exec("ALTER TABLE dashboard_state ADD COLUMN flashcards_json TEXT NOT NULL DEFAULT '[]'");
+}
+
 const app = express();
 app.disable("x-powered-by");
 app.use(helmet());
-app.use(express.json({ limit: "64kb" }));
+app.use(express.json({ limit: "256kb" }));
 
 const authRateLimit = rateLimit({
   windowMs: 15 * 60 * 1000,
@@ -86,10 +92,11 @@ const publicUser = (user) => ({
 const dashboardDefaults = {
   note: "",
   todos: [],
+  flashcards: [],
   loginDays: [],
   weatherSelection: null,
   theme: "light",
-  visibleWidgets: { tasks: true, notes: true, streak: true, weather: true , flashcard: true},
+  visibleWidgets: { tasks: true, notes: true, streak: true, weather: true, flashcard: true },
 };
 
 const readDashboardState = (userId) => {
@@ -101,10 +108,14 @@ const readDashboardState = (userId) => {
   return {
     note: state.note,
     todos: jsonOr(state.todos_json, []),
+    flashcards: jsonOr(state.flashcards_json, []),
     loginDays: jsonOr(state.login_days_json, []),
     weatherSelection: jsonOr(state.weather_selection_json, null),
     theme: state.theme,
-    visibleWidgets: jsonOr(state.visible_widgets_json, dashboardDefaults.visibleWidgets),
+    visibleWidgets: {
+      ...dashboardDefaults.visibleWidgets,
+      ...jsonOr(state.visible_widgets_json, {}),
+    },
   };
 };
 
@@ -268,7 +279,12 @@ app.put("/api/dashboard", authenticate, (request, response) => {
   const body = request.body || {};
   const note = typeof body.note === "string" ? body.note : "";
   const todos = Array.isArray(body.todos) ? body.todos : null;
-  const allowedWidgets = ["tasks", "notes", "streak", "weather"];
+  const flashcards = body.flashcards === undefined
+    ? []
+    : Array.isArray(body.flashcards)
+      ? body.flashcards
+      : null;
+  const allowedWidgets = ["tasks", "notes", "streak", "weather", "flashcard"];
   const theme = body.theme;
 
   if (note.length > 50000) {
@@ -279,6 +295,15 @@ app.put("/api/dashboard", authenticate, (request, response) => {
     todo.text.trim().length === 0 || todo.text.length > 500 || typeof todo.completed !== "boolean",
   )) {
     return response.status(400).json({ message: "فهرست فعالیت‌ها معتبر نیست." });
+  }
+  if (!flashcards || flashcards.length > 100 || flashcards.some((flashcard) =>
+    !flashcard || typeof flashcard.id !== "string" || flashcard.id.length === 0 ||
+    flashcard.id.length > 100 || typeof flashcard.question !== "string" ||
+    flashcard.question.trim().length === 0 || flashcard.question.length > 1000 ||
+    typeof flashcard.answer !== "string" || flashcard.answer.trim().length === 0 ||
+    flashcard.answer.length > 1000,
+  )) {
+    return response.status(400).json({ message: "فهرست کارت‌های مرور معتبر نیست." });
   }
   if (theme !== "light" && theme !== "dark") {
     return response.status(400).json({ message: "حالت نمایش معتبر نیست." });
@@ -298,12 +323,13 @@ app.put("/api/dashboard", authenticate, (request, response) => {
   const updatedAt = new Date().toISOString();
   database.prepare(`
     UPDATE dashboard_state
-    SET note = ?, todos_json = ?, weather_selection_json = ?, theme = ?,
+    SET note = ?, todos_json = ?, flashcards_json = ?, weather_selection_json = ?, theme = ?,
         visible_widgets_json = ?, updated_at = ?
     WHERE user_id = ?
   `).run(
     note,
     JSON.stringify(todos),
+    JSON.stringify(flashcards),
     body.weatherSelection === null ? null : JSON.stringify(body.weatherSelection),
     theme,
     JSON.stringify(Object.fromEntries(allowedWidgets.map((id) => [id, body.visibleWidgets[id]]))),

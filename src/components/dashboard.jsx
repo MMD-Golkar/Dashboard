@@ -54,6 +54,10 @@ export function Dashboard() {
   const navigate = useNavigate();
   const [note, setNote] = useState("");
   const [todos, setTodos] = useState([]);
+  const [flashcards, setFlashcards] = useState([]);
+  const [flashcardQuestion, setFlashcardQuestion] = useState("");
+  const [flashcardAnswer, setFlashcardAnswer] = useState("");
+  const [flippedFlashcards, setFlippedFlashcards] = useState(() => new Set());
   const [loginDays, setLoginDays] = useState([]);
   const [todoDraft, setTodoDraft] = useState("");
   const [isTodoComposerOpen, setIsTodoComposerOpen] = useState(false);
@@ -115,6 +119,7 @@ export function Dashboard() {
         const dashboard = response.dashboard;
         setNote(dashboard.note || "");
         setTodos(Array.isArray(dashboard.todos) ? dashboard.todos : []);
+        setFlashcards(Array.isArray(dashboard.flashcards) ? dashboard.flashcards : []);
         setLoginDays(
           Array.isArray(dashboard.loginDays) ? dashboard.loginDays : [],
         );
@@ -154,7 +159,7 @@ export function Dashboard() {
     const saveTimeout = window.setTimeout(() => {
       void apiRequest("/dashboard", {
         method: "PUT",
-        body: { note, todos, weatherSelection, theme, visibleWidgets },
+        body: { note, todos, flashcards, weatherSelection, theme, visibleWidgets },
       })
         .then(() => {
           setDashboardError("");
@@ -174,6 +179,7 @@ export function Dashboard() {
     dashboardStatus,
     note,
     todos,
+    flashcards,
     weatherSelection,
     theme,
     visibleWidgets,
@@ -223,6 +229,32 @@ export function Dashboard() {
     ]);
     setTodoDraft("");
     setIsTodoComposerOpen(false);
+  };
+
+  const addFlashcard = (event) => {
+    event.preventDefault();
+    const question = flashcardQuestion.trim();
+    const answer = flashcardAnswer.trim();
+    if (!question || !answer || flashcards.length >= 100) return;
+
+    setFlashcards((currentFlashcards) => [
+      ...currentFlashcards,
+      { id: `${Date.now()}-${Math.random()}`, question, answer },
+    ]);
+    setFlashcardQuestion("");
+    setFlashcardAnswer("");
+  };
+
+  const toggleFlashcard = (flashcardId) => {
+    setFlippedFlashcards((currentFlipped) => {
+      const nextFlipped = new Set(currentFlipped);
+      if (nextFlipped.has(flashcardId)) {
+        nextFlipped.delete(flashcardId);
+      } else {
+        nextFlipped.add(flashcardId);
+      }
+      return nextFlipped;
+    });
   };
 
   const toggleTodo = (todoId) => {
@@ -972,10 +1004,67 @@ export function Dashboard() {
                   </div>
                 </div>
                 
-                <div className="flashcards-container">
-                    <input type="text" placeholder="کارت جدید اضافه کنید..." className="p-3"/>
-                </div>
+                <form className="flashcard-form" onSubmit={addFlashcard}>
+                  <input
+                    className="flashcard-input"
+                    type="text"
+                    value={flashcardQuestion}
+                    maxLength={1000}
+                    placeholder="سوال کارت را بنویسید..."
+                    aria-label="سوال کارت مرور"
+                    onChange={(event) => setFlashcardQuestion(event.target.value)}
+                  />
+                  {flashcardQuestion.trim() && (
+                    <>
+                      <textarea
+                        className="flashcard-input flashcard-answer-input"
+                        value={flashcardAnswer}
+                        maxLength={1000}
+                        placeholder="پاسخ سوال را بنویسید..."
+                        aria-label="پاسخ کارت مرور"
+                        onChange={(event) => setFlashcardAnswer(event.target.value)}
+                      />
+                      <button
+                        className="flashcard-submit"
+                        type="submit"
+                        disabled={!flashcardAnswer.trim() || flashcards.length >= 100}
+                      >
+                        {flashcards.length >= 100 ? "ظرفیت کارت‌ها تکمیل است" : "افزودن کارت"}
+                      </button>
+                    </>
+                  )}
+                </form>
 
+                {flashcards.length > 0 && (
+                  <div className="flashcards-container" aria-label="کارت‌های مرور">
+                    {flashcards.map((flashcard) => {
+                      const isFlipped = flippedFlashcards.has(flashcard.id);
+                      return (
+                        <button
+                          className={`flashcard ${isFlipped ? "is-flipped" : ""}`}
+                          key={flashcard.id}
+                          type="button"
+                          aria-pressed={isFlipped}
+                          aria-label={`${isFlipped ? "پاسخ" : "سوال"}: ${isFlipped ? flashcard.answer : flashcard.question}. برای ${isFlipped ? "دیدن سوال" : "دیدن پاسخ"} کلیک کنید.`}
+                          onClick={() => toggleFlashcard(flashcard.id)}
+                        >
+                          <span className="flashcard-inner">
+                            <span className="flashcard-face flashcard-front" aria-hidden={isFlipped}>
+                              <span className="flashcard-side-label">سوال</span>
+                              <span className="flashcard-content">{flashcard.question}</span>
+                              <span className="flashcard-hint">برای دیدن پاسخ کلیک کنید</span>
+                            </span>
+                            <span className="flashcard-face flashcard-back" aria-hidden={!isFlipped}>
+                              <span className="flashcard-side-label">پاسخ</span>
+                              <span className="flashcard-content">{flashcard.answer}</span>
+                              <span className="flashcard-hint">برای دیدن سوال کلیک کنید</span>
+                            </span>
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
             )}
           </div>
