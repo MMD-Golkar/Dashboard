@@ -57,7 +57,13 @@ export function Dashboard() {
   const [flashcards, setFlashcards] = useState([]);
   const [flashcardQuestion, setFlashcardQuestion] = useState("");
   const [flashcardAnswer, setFlashcardAnswer] = useState("");
+  const [isFlashcardSaving, setIsFlashcardSaving] = useState(false);
+  const [flashcardSaveStatus, setFlashcardSaveStatus] = useState("");
   const [flippedFlashcards, setFlippedFlashcards] = useState(() => new Set());
+  const [focusDuration, setFocusDuration] = useState(25);
+  const [focusRemaining, setFocusRemaining] = useState(25 * 60);
+  const [focusDeadline, setFocusDeadline] = useState(null);
+  const [isFocusRunning, setIsFocusRunning] = useState(false);
   const [loginDays, setLoginDays] = useState([]);
   const [todoDraft, setTodoDraft] = useState("");
   const [isTodoComposerOpen, setIsTodoComposerOpen] = useState(false);
@@ -82,6 +88,7 @@ export function Dashboard() {
     streak: true,
     weather: true,
     flashcard: true,
+    focusTimer: true,
   });
   const [selectedRole, setSelectedRole] = useState("سایر");
   const widgetOrder = widgetOrderByRole[selectedRole] || defaultWidgetOrder;
@@ -107,6 +114,26 @@ export function Dashboard() {
   const loginStreak = getCurrentLoginStreak(loginDays, todayKey);
 
   useEffect(() => {
+    if (!isFocusRunning || focusDeadline === null) return undefined;
+
+    const updateRemaining = () => {
+      const remaining = Math.max(
+        0,
+        Math.ceil((focusDeadline - Date.now()) / 1000),
+      );
+      setFocusRemaining(remaining);
+      if (remaining === 0) {
+        setIsFocusRunning(false);
+        setFocusDeadline(null);
+      }
+    };
+
+    updateRemaining();
+    const intervalId = window.setInterval(updateRemaining, 1000);
+    return () => window.clearInterval(intervalId);
+  }, [isFocusRunning, focusDeadline]);
+
+  useEffect(() => {
     let cancelled = false;
 
     const loadDashboard = async () => {
@@ -130,6 +157,7 @@ export function Dashboard() {
           notes: true,
           streak: true,
           weather: true,
+          focusTimer: true,
           ...dashboard.visibleWidgets,
         });
         setSelectedRole(response.user.role || "سایر");
@@ -231,18 +259,46 @@ export function Dashboard() {
     setIsTodoComposerOpen(false);
   };
 
-  const addFlashcard = (event) => {
+  const addFlashcard = async (event) => {
     event.preventDefault();
     const question = flashcardQuestion.trim();
     const answer = flashcardAnswer.trim();
-    if (!question || !answer || flashcards.length >= 100) return;
+    if (!question || !answer || flashcards.length >= 100 || isFlashcardSaving) return;
 
-    setFlashcards((currentFlashcards) => [
-      ...currentFlashcards,
+    const nextFlashcards = [
+      ...flashcards,
       { id: `${Date.now()}-${Math.random()}`, question, answer },
-    ]);
-    setFlashcardQuestion("");
-    setFlashcardAnswer("");
+    ];
+    setIsFlashcardSaving(true);
+    setFlashcardSaveStatus("در حال ذخیره کارت...");
+    try {
+      await apiRequest("/dashboard", {
+        method: "PUT",
+        body: {
+          note,
+          todos,
+          flashcards: nextFlashcards,
+          weatherSelection,
+          theme,
+          visibleWidgets,
+        },
+      });
+      setFlashcards(nextFlashcards);
+      setFlashcardQuestion("");
+      setFlashcardAnswer("");
+      setFlashcardSaveStatus("کارت در حساب شما ذخیره شد.");
+      setDashboardError("");
+    } catch (error) {
+      if (error.status === 401) {
+        localStorage.removeItem("token");
+        navigate("/signin", { replace: true });
+        return;
+      }
+      setFlashcardSaveStatus("");
+      setDashboardError(error.message || "ذخیره کارت انجام نشد.");
+    } finally {
+      setIsFlashcardSaving(false);
+    }
   };
 
   const toggleFlashcard = (flashcardId) => {
@@ -1003,7 +1059,8 @@ export function Dashboard() {
                     />
                   </div>
                 </div>
-                
+                <h2 className="dashboard-card-title">سریع جوابو پیدا کن</h2>
+                <p className="mt-5 mb-2 text-md text-mist-300"> سوالتو بنویس  و جواب سوالتو بعدا فقط با یک کلیک بررسی کن</p>
                 <form className="flashcard-form" onSubmit={addFlashcard}>
                   <input
                     className="flashcard-input"
@@ -1027,13 +1084,22 @@ export function Dashboard() {
                       <button
                         className="flashcard-submit"
                         type="submit"
-                        disabled={!flashcardAnswer.trim() || flashcards.length >= 100}
+                        disabled={!flashcardAnswer.trim() || flashcards.length >= 100 || isFlashcardSaving}
                       >
-                        {flashcards.length >= 100 ? "ظرفیت کارت‌ها تکمیل است" : "افزودن کارت"}
+                        {isFlashcardSaving
+                          ? "در حال ذخیره..."
+                          : flashcards.length >= 100
+                            ? "ظرفیت کارت‌ها تکمیل است"
+                            : "افزودن کارت"}
                       </button>
                     </>
                   )}
                 </form>
+                {flashcardSaveStatus && (
+                  <p className="dashboard-flashcard-save-status mt-2 mb-2 mr-1" role="status">
+                    {flashcardSaveStatus}
+                  </p>
+                )}
 
                 {flashcards.length > 0 && (
                   <div className="flashcards-container" aria-label="کارت‌های مرور">
@@ -1066,7 +1132,103 @@ export function Dashboard() {
                   </div>
                 )}
               </div>
+              
             )}
+            {visibleWidgets.focusTimer && (
+                  <div
+                    className="dashboard-card dashboard-card-focus"
+                    style={{ order: widgetOrder.indexOf("focusTimer") }}
+                  >
+                    <div className="dashboard-card-header">
+                      <p className="dashboard-card-label">06 / زمان تمرکز</p>
+                      <div className="dashboard-card-tools">
+                        <p className="dashboard-card-mark" aria-hidden="true">⏱</p>
+                        <RemoveWidgetButton
+                          widgetLabel="زمان تمرکز"
+                          onRemove={() => toggleWidget("focusTimer")}
+                        />
+                      </div>
+                    </div>
+
+                    <h2 className="dashboard-card-title">با تمرکز پیش برو</h2>
+                    <p className="dashboard-focus-description">
+                      یک بازه انتخاب کن، حواست را روی یک کار بگذار و قدم‌به‌قدم
+                      پیشرفت کن.
+                    </p>
+
+                    <div className="dashboard-focus-durations" role="group" aria-label="انتخاب مدت زمان تمرکز">
+                      {[15, 25, 45, 60].map((minutes) => (
+                        <button
+                          className={`dashboard-focus-duration ${focusDuration === minutes ? "is-selected" : ""}`}
+                          key={minutes}
+                          type="button"
+                          aria-pressed={focusDuration === minutes}
+                          disabled={isFocusRunning}
+                          onClick={() => {
+                            setFocusDuration(minutes);
+                            setFocusRemaining(minutes * 60);
+                          }}
+                        >
+                          {new Intl.NumberFormat("fa-IR").format(minutes)} دقیقه
+                        </button>
+                      ))}
+                    </div>
+
+                    <p className="dashboard-focus-time" role="timer" aria-live="off">
+                      {new Intl.NumberFormat("fa-IR", {
+                        minimumIntegerDigits: 2,
+                        useGrouping: false,
+                      }).format(Math.floor(focusRemaining / 60))}
+                      :
+                      {new Intl.NumberFormat("fa-IR", {
+                        minimumIntegerDigits: 2,
+                        useGrouping: false,
+                      }).format(focusRemaining % 60)}
+                    </p>
+
+                    <div className="dashboard-focus-actions">
+                      <button
+                        className="dashboard-focus-start"
+                        type="button"
+                        disabled={isFocusRunning || focusRemaining === 0}
+                        onClick={() => {
+                          setFocusDeadline(Date.now() + focusRemaining * 1000);
+                          setIsFocusRunning(true);
+                        }}
+                      >
+                        {focusRemaining < focusDuration * 60 ? "ادامه" : "شروع"}
+                      </button>
+                      {isFocusRunning && (
+                        <button
+                          className="dashboard-focus-pause"
+                          type="button"
+                          onClick={() => {
+                            const remaining = Math.max(
+                              0,
+                              Math.ceil((focusDeadline - Date.now()) / 1000),
+                            );
+                            setFocusRemaining(remaining);
+                            setIsFocusRunning(false);
+                            setFocusDeadline(null);
+                          }}
+                        >
+                          مکث
+                        </button>
+                      )}
+                      <button
+                        className="dashboard-focus-reset"
+                        type="button"
+                        onClick={() => {
+                          setIsFocusRunning(false);
+                          setFocusDeadline(null);
+                          setFocusRemaining(focusDuration * 60);
+                        }}
+                      >
+                        بازنشانی
+                      </button>
+                    </div>
+                  </div>
+                )}
           </div>
         </section>
       </div>

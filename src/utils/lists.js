@@ -16,8 +16,9 @@ const widgetCategories = [
   { id: "streak", label: "تداوم" , index: 3 , image: "↗"},
   { id: "weather", label: "محیط", index: 4 , image: "☀"},
   { id: "flashcard", label: "کارت مرور", index: 5 , image:"🧠" },
+  { id: "focusTimer", label: "زمان تمرکز", index: 6, image: "⏱" },
 ];
-const defaultWidgetOrder = ["tasks", "notes", "streak", "weather" , "flashcard"];
+const defaultWidgetOrder = ["tasks", "notes", "streak", "weather", "flashcard", "focusTimer"];
 
 const weekDays = [
   { key: 6, short: "ش", label: "شنبه" },
@@ -73,14 +74,14 @@ const recommendedLocations = [
 ];
 
 const widgetOrderByRole = {
-  "دانش آموز": ["tasks", "streak", "notes", "weather", "flashcard"],
-  "توسعه دهنده": ["tasks", "notes", "streak", "weather", "flashcard"],
-  "طراحی و ادیت": ["notes", "tasks", "streak", "weather", "flashcard"],
-  "مدیر محصول": ["tasks", "notes", "streak", "weather", "flashcard"],
-  "بازاریابی و فروش": ["tasks", "notes", "weather", "streak", "flashcard"],
-  "کارآفرین": ["tasks", "streak", "notes", "weather", "flashcard"],
-  "فریلنسر": ["notes", "tasks", "streak", "weather", "flashcard"],
-  "مدرس , معلم": ["notes", "tasks", "streak", "weather", "flashcard"],
+  "دانش آموز": ["tasks", "streak", "notes", "weather", "flashcard", "focusTimer"],
+  "توسعه دهنده": ["tasks", "notes", "streak", "weather", "flashcard", "focusTimer"],
+  "طراحی و ادیت": ["notes", "tasks", "streak", "weather", "flashcard", "focusTimer"],
+  "مدیر محصول": ["tasks", "notes", "streak", "weather", "flashcard", "focusTimer"],
+  "بازاریابی و فروش": ["tasks", "notes", "weather", "streak", "flashcard", "focusTimer"],
+  "کارآفرین": ["tasks", "streak", "notes", "weather", "flashcard", "focusTimer"],
+  "فریلنسر": ["notes", "tasks", "streak", "weather", "flashcard", "focusTimer"],
+  "مدرس , معلم": ["notes", "tasks", "streak", "weather", "flashcard", "focusTimer"],
   "سایر": defaultWidgetOrder,
 };
 

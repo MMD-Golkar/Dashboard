@@ -96,7 +96,14 @@ const dashboardDefaults = {
   loginDays: [],
   weatherSelection: null,
   theme: "light",
-  visibleWidgets: { tasks: true, notes: true, streak: true, weather: true, flashcard: true },
+  visibleWidgets: {
+    tasks: true,
+    notes: true,
+    streak: true,
+    weather: true,
+    flashcard: true,
+    focusTimer: true,
+  },
 };
 
 const readDashboardState = (userId) => {
@@ -284,7 +291,7 @@ app.put("/api/dashboard", authenticate, (request, response) => {
     : Array.isArray(body.flashcards)
       ? body.flashcards
       : null;
-  const allowedWidgets = ["tasks", "notes", "streak", "weather", "flashcard"];
+  const allowedWidgets = ["tasks", "notes", "streak", "weather", "flashcard", "focusTimer"];
   const theme = body.theme;
 
   if (note.length > 50000) {
