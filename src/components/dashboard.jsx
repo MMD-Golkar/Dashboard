@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { apiRequest } from "../utils/api";
+ import Footer from "./Footer.jsx"
 import {
   widgetCategories,
   defaultWidgetOrder,
@@ -1232,6 +1233,9 @@ export function Dashboard() {
           </div>
         </section>
       </div>
+
+      {<Footer />}
     </main>
+    
   );
 }
